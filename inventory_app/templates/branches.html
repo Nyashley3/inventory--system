@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block content %}
+<h3>Branches</h3>
+<div class="mb-3 d-flex">
+  <input id="b-name" class="form-control me-2" placeholder="Name">
+  <input id="b-address" class="form-control me-2" placeholder="Address">
+  <button id="b-create" class="btn btn-primary">Create</button>
+</div>
+<ul id="branches-list" class="list-group"></ul>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function loadBranches(){
+  try {
+    const j = await apiGet('/api/branches');
+    const ul = document.getElementById('branches-list'); ul.innerHTML='';
+    j.forEach(b=>{ const li=document.createElement('li'); li.className='list-group-item'; li.innerText=`${b.id}: ${b.name} — ${b.address}`; ul.appendChild(li);});
+  } catch (err) {
+    showAlert(err.msg || 'Unable to load branches.', 'danger');
+  }
+}
+document.getElementById('b-create').onclick = async ()=>{
+  const name = document.getElementById('b-name').value.trim();
+  const address = document.getElementById('b-address').value.trim();
+  if (!name) { showAlert('Branch name cannot be empty.', 'warning'); return; }
+  try {
+    await apiPost('/api/branches',{name,address});
+    showAlert('Branch created successfully.', 'success');
+    document.getElementById('b-name').value = '';
+    document.getElementById('b-address').value = '';
+    loadBranches();
+  } catch (err) {
+    showAlert(err.msg || 'Could not create branch.', 'danger');
+  }
+}
+loadBranches();
+</script>
+{% endblock %}

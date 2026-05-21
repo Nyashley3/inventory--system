@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>MobileTill Pulse</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="/static/css/style.css" rel="stylesheet">
+</head>
+<body>
+  <nav class="navbar navbar-expand-lg navbar-dark bg-primary shadow-sm">
+    <div class="container-fluid">
+      <a class="navbar-brand fw-bold" href="/dashboard">MobileTill Pulse</a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navmenu">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navmenu">
+        <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+          <li class="nav-item" data-roles="cashier,supervisor,manager"><a class="nav-link" href="/dashboard">Dashboard</a></li>
+          <li class="nav-item" data-roles="cashier,supervisor,manager"><a class="nav-link" href="/checkout"><strong>🛒 Checkout</strong></a></li>
+          <li class="nav-item" data-roles="cashier,supervisor,manager"><a class="nav-link" href="/products">Products</a></li>
+          <li class="nav-item" data-roles="manager"><a class="nav-link" href="/branches_page">Branches</a></li>
+          <li class="nav-item" data-roles="supervisor,manager"><a class="nav-link" href="/stocks_page">Stocks</a></li>
+          <li class="nav-item" data-roles="cashier,supervisor,manager"><a class="nav-link" href="/sales_page">Sales</a></li>
+          <li class="nav-item" data-roles="supervisor,manager"><a class="nav-link" href="/reports_page">Reports</a></li>
+          <li class="nav-item" data-roles="manager"><a class="nav-link" href="/employees_page">Employees</a></li>
+        </ul>
+        <div class="d-flex align-items-center">
+          <span id="nav-user" class="text-white me-3"></span>
+          <button id="nav-logout" class="btn btn-outline-light btn-sm">Logout</button>
+        </div>
+      </div>
+    </div>
+  </nav>
+  <div class="container mt-4" id="page-content">
+    <div id="page-alert"></div>
+    {% block content %}{% endblock %}
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="/static/js/pages.js"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

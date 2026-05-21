@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block content %}
+  <div class="page-header">
+    <h2>Welcome to MobileTill Pulse</h2>
+    <p class="section-intro">A lightweight inventory dashboard for branches, stock alerts, sales, and barcode scanning.</p>
+  </div>
+  <div class="card-grid">
+    <div class="info-card">
+      <h5>Quick Actions</h5>
+      <p class="mb-2">Access products, branches, stock control, sales and reports from the menu above.</p>
+      <div class="d-grid gap-2">
+        <a href="/products" class="btn btn-primary btn-sm">Manage Products</a>
+        <a href="/sales_page" class="btn btn-outline-primary btn-sm">Record a Sale</a>
+      </div>
+    </div>
+    <div class="info-card">
+      <h5>Stock Alerts</h5>
+      <p class="mb-3">Low stock items are shown below after a sale or when loading alerts.</p>
+      <div id="alerts"></div>
+    </div>
+    <div class="info-card">
+      <h5>Scan & Sell</h5>
+      <p class="mb-2">Use your device camera to scan product barcodes quickly.</p>
+      <button id="btn-start" class="btn btn-success btn-sm me-2">Start Scan</button>
+      <button id="btn-stop" class="btn btn-warning btn-sm">Stop</button>
+      <div id="scan-result" class="mt-3 text-muted"></div>
+    </div>
+  </div>
+  <div class="page-card">
+    <div class="row">
+      <div class="col-md-6">
+        <h5>Record a Sale</h5>
+        <p class="section-intro">Create a sale using branch and product IDs.</p>
+        <div class="mb-2"><input id="sale-branch" class="form-control" placeholder="branch_id (number)"></div>
+        <div class="mb-2"><input id="sale-product" class="form-control" placeholder="product_id"></div>
+        <div class="mb-2"><input id="sale-qty" class="form-control" placeholder="quantity" value="1"></div>
+        <button id="btn-sale" class="btn btn-primary">Record Sale</button>
+        <div id="sale-result" class="mt-3"></div>
+      </div>
+      <div class="col-md-6">
+        <h5>Product Preview</h5>
+        <div id="product-info" class="text-muted">Scan a barcode or enter a product ID to view details.</div>
+      </div>
+    </div>
+  </div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://unpkg.com/@ericblade/quagga2@1.2.6/dist/quagga.min.js"></script>
+<script src="/static/js/scan.js"></script>
+<script>
+document.getElementById('btn-sale').onclick = async ()=>{
+  const branch = document.getElementById('sale-branch').value.trim();
+  const pid = document.getElementById('sale-product').value.trim();
+  const qty = document.getElementById('sale-qty').value.trim();
+  if (!branch || !pid || !qty) {
+    showAlert('Please provide branch ID, product ID, and quantity to record the sale.', 'warning');
+    return;
+  }
+  try {
+    const j = await apiPost('/api/sales',{branch_id:branch, items:[{product_id:pid, quantity:qty}]});
+    document.getElementById('sale-result').innerText = JSON.stringify(j, null, 2);
+    showAlert('Sale recorded successfully.', 'success');
+    loadAlerts();
+  } catch (err) {
+    showAlert(err.msg || 'Unable to record sale. Please check the branch and product IDs.', 'danger');
+  }
+}
+async function loadAlerts(){
+  try {
+    const j = await apiGet('/api/alerts');
+    if (Array.isArray(j) && j.length) {
+      document.getElementById('alerts').innerHTML = '<div class="alert alert-warning">Low stock: '+j.map(a=>a.product_name+" (b"+a.branch_id+": "+a.quantity+")").join(', ')+'</div>';
+    } else {
+      document.getElementById('alerts').innerHTML='<div class="text-muted">No low stock alerts.</div>';
+    }
+  } catch (err) {
+    showAlert(err.msg || 'Could not load stock alerts.', 'danger');
+  }
+}
+loadAlerts();
+</script>
+{% endblock %}

@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block content %}
+<h3>Stocks</h3>
+<div class="row">
+  <div class="col-md-6">
+    <h6>Set Stock</h6>
+    <input id="s-branch" class="form-control mb-2" placeholder="branch_id">
+    <input id="s-product" class="form-control mb-2" placeholder="product_id">
+    <input id="s-qty" class="form-control mb-2" placeholder="quantity">
+    <input id="s-th" class="form-control mb-2" placeholder="threshold">
+    <button id="s-set" class="btn btn-primary">Set</button>
+  </div>
+  <div class="col-md-6">
+    <h6>Low Stock Alerts</h6>
+    <div id="low-list"></div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('s-set').onclick = async ()=>{
+  const branch = document.getElementById('s-branch').value.trim();
+  const product = document.getElementById('s-product').value.trim();
+  const qty = document.getElementById('s-qty').value.trim();
+  const th = document.getElementById('s-th').value.trim();
+  if (!branch || !product) { showAlert('Branch ID and product ID are required.', 'warning'); return; }
+  try {
+    await apiPost('/api/stocks',{branch_id:branch, product_id:product, quantity:qty, threshold:th});
+    showAlert('Stock updated successfully.', 'success');
+    loadAlerts();
+  } catch (err) {
+    showAlert(err.msg || 'Could not update stock.', 'danger');
+  }
+}
+async function loadAlerts(){
+  try {
+    const j = await apiGet('/api/alerts');
+    document.getElementById('low-list').innerHTML = j.map(a=>`<div>${a.product_name} (b${a.branch_id}): ${a.quantity} <= ${a.threshold}</div>`).join('');
+  } catch (err) {
+    showAlert(err.msg || 'Unable to load low stock alerts.', 'danger');
+  }
+}
+loadAlerts();
+</script>
+{% endblock %}

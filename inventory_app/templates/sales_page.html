@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block content %}
+<h3>Sales</h3>
+<div class="row">
+  <div class="col-md-6">
+    <h6>Barcode Scanner</h6>
+    <div id="scanner" style="width:100%;max-width:480px;height:320px;border:1px solid #ddd;margin-bottom:10px;"></div>
+    <button id="btn-start" class="btn btn-success">Start Scan</button>
+    <button id="btn-stop" class="btn btn-warning">Stop</button>
+    <div id="scan-result" class="mt-2"></div>
+  </div>
+  <div class="col-md-6">
+    <h6>Create Sale</h6>
+    <input id="sale-branch" class="form-control mb-2" placeholder="branch_id">
+    <input id="sale-product" class="form-control mb-2" placeholder="product_id or click a product below">
+    <input id="sale-qty" class="form-control mb-2" placeholder="quantity" value="1">
+    <button id="btn-sale" class="btn btn-primary mb-3">Record Sale</button>
+    <div id="sale-result" class="mb-4"></div>
+    <h6>Available Products</h6>
+    <div class="input-group mb-2">
+      <input id="sale-filter-branch" class="form-control" placeholder="branch_id (optional)">
+      <button id="btn-load-products" class="btn btn-outline-secondary">Refresh</button>
+    </div>
+    <div class="table-responsive" style="max-height:320px;overflow:auto;">
+      <table class="table table-sm" id="sales-products-table">
+        <thead><tr><th>ID</th><th>Name</th><th>Price</th><th>Stock</th><th></th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://unpkg.com/@ericblade/quagga2@1.2.6/dist/quagga.min.js"></script>
+<script src="/static/js/scan.js"></script>
+<script>
+async function loadSaleProducts() {
+  try {
+    const branch = document.getElementById('sale-filter-branch').value.trim();
+    const url = branch ? '/api/products?branch_id=' + encodeURIComponent(branch) : '/api/products';
+    const items = await apiGet(url);
+    const tbody = document.querySelector('#sales-products-table tbody');
+    tbody.innerHTML = '';
+    items.forEach(p => {
+      const stock = typeof p.stock !== 'undefined' ? p.stock : '-';
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${p.id}</td><td>${p.name}</td><td>${p.price.toFixed(2)}</td><td>${stock}</td><td><button class='btn btn-sm btn-outline-primary select-product' data-id='${p.id}'>Select</button></td>`;
+      tbody.appendChild(tr);
+    });
+    document.querySelectorAll('.select-product').forEach(btn => {
+      btn.onclick = () => {
+        document.getElementById('sale-product').value = btn.dataset.id;
+        showAlert('Product ID ' + btn.dataset.id + ' selected. Enter quantity and record sale.', 'info', 4000);
+      };
+    });
+  } catch (err) {
+    showAlert(err.msg || 'Unable to load products for sale.', 'danger');
+  }
+}
+
+document.getElementById('btn-load-products').onclick = loadSaleProducts;
+
+document.getElementById('sale-branch').addEventListener('change', () => {
+  document.getElementById('sale-filter-branch').value = document.getElementById('sale-branch').value.trim();
+});
+
+document.getElementById('btn-sale').onclick = async ()=>{
+  const branch = document.getElementById('sale-branch').value.trim();
+  const pid = document.getElementById('sale-product').value.trim();
+  const qty = document.getElementById('sale-qty').value.trim();
+  if (!branch || !pid || !qty) { showAlert('Branch ID, product ID, and quantity are all required.', 'warning'); return; }
+  try {
+    const j = await apiPost('/api/sales',{branch_id: branch, items:[{product_id: pid, quantity: qty}]});
+    document.getElementById('sale-result').innerText = JSON.stringify(j, null, 2);
+    showAlert('Sale recorded successfully.', 'success');
+    loadSaleProducts();
+  } catch (err) {
+    showAlert(err.msg || 'Could not record sale.', 'danger');
+  }
+}
+
+loadSaleProducts();
+</script>
+{% endblock %}
