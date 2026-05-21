@@ -1,8 +1,36 @@
 {% extends "base.html" %}
 {% block content %}
 <h3>Employees</h3>
-<p class="section-intro">As manager, view every user account, lock access, or reset passwords without exposing real credentials.</p>
+<p class="section-intro">As manager or admin, view every user account, lock access, reset passwords, and create new users for your branch.</p>
 <div id="employees-alert"></div>
+<div class="card mb-4 p-3">
+  <h5>Create User</h5>
+  <div class="row g-2 align-items-end">
+    <div class="col-md-3">
+      <label for="new-username" class="form-label">Username</label>
+      <input id="new-username" class="form-control" placeholder="Username">
+    </div>
+    <div class="col-md-3">
+      <label for="new-password" class="form-label">Password</label>
+      <input id="new-password" type="password" class="form-control" placeholder="Password">
+    </div>
+    <div class="col-md-2">
+      <label for="new-role" class="form-label">Role</label>
+      <select id="new-role" class="form-select">
+        <option value="cashier">Cashier</option>
+        <option value="supervisor">Supervisor</option>
+        <option value="manager">Manager</option>
+      </select>
+    </div>
+    <div class="col-md-2">
+      <label for="new-branch" class="form-label">Branch ID</label>
+      <input id="new-branch" class="form-control" placeholder="Branch ID (optional)">
+    </div>
+    <div class="col-md-2">
+      <button id="create-user" class="btn btn-primary w-100">Create User</button>
+    </div>
+  </div>
+</div>
 <table class="table table-sm" id="employees-table">
   <thead>
     <tr>
@@ -21,54 +49,4 @@
 
 {% block scripts %}
 <script src="/static/js/employees.js"></script>
-  try {
-    const users = await apiGet('/api/users');
-    const tbody = document.querySelector('#employees-table tbody');
-    tbody.innerHTML = '';
-    users.forEach(user => {
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td>${user.id}</td>
-        <td>${user.username}</td>
-        <td>${user.role}</td>
-        <td>${user.branch_id || '-'} </td>
-        <td>${user.locked ? '<span class="badge bg-danger">Locked</span>' : '<span class="badge bg-success">Active</span>'}</td>
-        <td>${new Date(user.created_at).toLocaleString()}</td>
-        <td>
-          <button class="btn btn-sm btn-outline-${user.locked ? 'success' : 'warning'} user-lock" data-id="${user.id}" data-locked="${user.locked}">${user.locked ? 'Unlock' : 'Lock'}</button>
-          <button class="btn btn-sm btn-outline-primary ms-1 user-reset" data-id="${user.id}" data-username="${user.username}">Reset Password</button>
-        </td>
-      `;
-      tbody.appendChild(tr);
-    });
-    document.querySelectorAll('.user-lock').forEach(btn => btn.onclick = async (e) => {
-      const id = btn.dataset.id;
-      const locked = btn.dataset.locked === 'true';
-      try {
-        await apiPost(`/api/users/${id}/lock`, {locked: !locked});
-        showAlert(`User ${locked ? 'unlocked' : 'locked'} successfully.`, 'success');
-        loadEmployees();
-      } catch (err) {
-        showAlert(err.msg || 'Could not update user lock status.', 'danger');
-      }
-    });
-    document.querySelectorAll('.user-reset').forEach(btn => btn.onclick = async (e) => {
-      const id = btn.dataset.id;
-      const username = btn.dataset.username;
-      const password = prompt(`Enter a new password for ${username}:`);
-      if (!password) return;
-      try {
-        await apiPost(`/api/users/${id}/password`, {password});
-        showAlert('Password reset successfully.', 'success');
-      } catch (err) {
-        showAlert(err.msg || 'Could not reset password.', 'danger');
-      }
-    });
-  } catch (err) {
-    showAlert(err.msg || 'Unable to load employees.', 'danger');
-  }
-}
-
-loadEmployees();
-</script>
 {% endblock %}

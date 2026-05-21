@@ -705,42 +705,50 @@ def index():
 
 
 @app.route('/dashboard')
+@auth_required
 def dashboard():
     return render_template('dashboard.html')
 
 
 # GUI pages
 @app.route('/products')
+@role_required(['supervisor', 'manager'])
 def products_page():
     return render_template('products.html')
 
 
 @app.route('/branches_page')
+@role_required(['manager'])
 def branches_page():
     return render_template('branches.html')
 
 
 @app.route('/stocks_page')
+@role_required(['supervisor', 'manager'])
 def stocks_page():
     return render_template('stocks.html')
 
 
 @app.route('/sales_page')
+@role_required(['cashier', 'supervisor', 'manager'])
 def sales_page():
     return render_template('sales_page.html')
 
 
 @app.route('/reports_page')
+@role_required(['supervisor', 'manager'])
 def reports_page():
     return render_template('reports.html')
 
 
 @app.route('/employees_page')
+@role_required(['manager'])
 def employees_page():
     return render_template('employees.html')
 
 
 @app.route('/checkout')
+@role_required(['cashier'])
 def checkout():
     return render_template('checkout.html')
 

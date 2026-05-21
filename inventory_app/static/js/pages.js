@@ -52,7 +52,11 @@ document.getElementById('nav-logout')?.addEventListener('click', async ()=>{
     document.getElementById('nav-user').innerText = (payload.sub || '') + (role ? ` • ${role}` : '');
     document.querySelectorAll('[data-roles]').forEach(li => {
       const roles = li.dataset.roles.split(',');
-      if (!roles.includes(role)) li.style.display = 'none';
+      if (role !== 'admin' && !roles.includes(role)) {
+        li.style.display = 'none';
+      } else {
+        li.style.display = '';
+      }
     });
   } catch (e) {
     console.warn('Unable to decode token', e);

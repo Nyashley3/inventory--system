@@ -11,28 +11,4 @@
 
 {% block scripts %}
 <script src="/static/js/branches.js"></script>
-  try {
-    const j = await apiGet('/api/branches');
-    const ul = document.getElementById('branches-list'); ul.innerHTML='';
-    j.forEach(b=>{ const li=document.createElement('li'); li.className='list-group-item'; li.innerText=`${b.id}: ${b.name} — ${b.address}`; ul.appendChild(li);});
-  } catch (err) {
-    showAlert(err.msg || 'Unable to load branches.', 'danger');
-  }
-}
-document.getElementById('b-create').onclick = async ()=>{
-  const name = document.getElementById('b-name').value.trim();
-  const address = document.getElementById('b-address').value.trim();
-  if (!name) { showAlert('Branch name cannot be empty.', 'warning'); return; }
-  try {
-    await apiPost('/api/branches',{name,address});
-    showAlert('Branch created successfully.', 'success');
-    document.getElementById('b-name').value = '';
-    document.getElementById('b-address').value = '';
-    loadBranches();
-  } catch (err) {
-    showAlert(err.msg || 'Could not create branch.', 'danger');
-  }
-}
-loadBranches();
-</script>
 {% endblock %}

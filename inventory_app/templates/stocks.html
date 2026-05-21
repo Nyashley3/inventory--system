@@ -19,27 +19,4 @@
 
 {% block scripts %}
 <script src="/static/js/stocks.js"></script>
-  const branch = document.getElementById('s-branch').value.trim();
-  const product = document.getElementById('s-product').value.trim();
-  const qty = document.getElementById('s-qty').value.trim();
-  const th = document.getElementById('s-th').value.trim();
-  if (!branch || !product) { showAlert('Branch ID and product ID are required.', 'warning'); return; }
-  try {
-    await apiPost('/api/stocks',{branch_id:branch, product_id:product, quantity:qty, threshold:th});
-    showAlert('Stock updated successfully.', 'success');
-    loadAlerts();
-  } catch (err) {
-    showAlert(err.msg || 'Could not update stock.', 'danger');
-  }
-}
-async function loadAlerts(){
-  try {
-    const j = await apiGet('/api/alerts');
-    document.getElementById('low-list').innerHTML = j.map(a=>`<div>${a.product_name} (b${a.branch_id}): ${a.quantity} <= ${a.threshold}</div>`).join('');
-  } catch (err) {
-    showAlert(err.msg || 'Unable to load low stock alerts.', 'danger');
-  }
-}
-loadAlerts();
-</script>
 {% endblock %}
