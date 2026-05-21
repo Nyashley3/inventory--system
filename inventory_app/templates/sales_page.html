@@ -21,7 +21,7 @@
       <input id="sale-filter-branch" class="form-control" placeholder="branch_id (optional)">
       <button id="btn-load-products" class="btn btn-outline-secondary">Refresh</button>
     </div>
-    <div class="table-responsive" style="max-height:320px;overflow:auto;">
+    <div class="table-responsive sales-product-table-scroll">
       <table class="table table-sm" id="sales-products-table">
         <thead><tr><th>ID</th><th>Name</th><th>Price</th><th>Stock</th><th></th></tr></thead>
         <tbody></tbody>
@@ -34,8 +34,7 @@
 {% block scripts %}
 <script src="https://unpkg.com/@ericblade/quagga2@1.2.6/dist/quagga.min.js"></script>
 <script src="/static/js/scan.js"></script>
-<script>
-async function loadSaleProducts() {
+<script src="/static/js/sales.js"></script>
   try {
     const branch = document.getElementById('sale-filter-branch').value.trim();
     const url = branch ? '/api/products?branch_id=' + encodeURIComponent(branch) : '/api/products';

@@ -14,8 +14,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script>
-function renderReport(data, branch) {
+<script src="/static/js/reports.js"></script>
   const branchLabel = branch ? ` for branch ${branch}` : '';
   return `
     <h5 class="mb-3">Sales Report — ${data.range.charAt(0).toUpperCase()+data.range.slice(1)}${branchLabel}</h5>

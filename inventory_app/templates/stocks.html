@@ -18,8 +18,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script>
-document.getElementById('s-set').onclick = async ()=>{
+<script src="/static/js/stocks.js"></script>
   const branch = document.getElementById('s-branch').value.trim();
   const product = document.getElementById('s-product').value.trim();
   const qty = document.getElementById('s-qty').value.trim();

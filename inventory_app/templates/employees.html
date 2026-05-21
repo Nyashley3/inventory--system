@@ -20,8 +20,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script>
-async function loadEmployees(){
+<script src="/static/js/employees.js"></script>
   try {
     const users = await apiGet('/api/users');
     const tbody = document.querySelector('#employees-table tbody');

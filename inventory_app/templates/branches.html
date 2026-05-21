@@ -10,8 +10,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script>
-async function loadBranches(){
+<script src="/static/js/branches.js"></script>
   try {
     const j = await apiGet('/api/branches');
     const ul = document.getElementById('branches-list'); ul.innerHTML='';

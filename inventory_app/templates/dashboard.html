@@ -48,8 +48,7 @@
 {% block scripts %}
 <script src="https://unpkg.com/@ericblade/quagga2@1.2.6/dist/quagga.min.js"></script>
 <script src="/static/js/scan.js"></script>
-<script>
-document.getElementById('btn-sale').onclick = async ()=>{
+<script src="/static/js/dashboard.js"></script>
   const branch = document.getElementById('sale-branch').value.trim();
   const pid = document.getElementById('sale-product').value.trim();
   const qty = document.getElementById('sale-qty').value.trim();

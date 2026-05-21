@@ -23,7 +23,7 @@
           </div>
         </div>
 
-        <div id="search-result" class="mb-3 p-2 border rounded" style="min-height:80px;display:none;">
+        <div id="search-result" class="mb-3 p-2 border rounded checkout-search-result d-none">
           <div id="product-details"></div>
           <div class="mt-2">
             <input id="add-quantity" class="form-control form-control-sm mb-2" placeholder="Quantity" type="number" value="1" min="1">
@@ -50,7 +50,7 @@
         <h6 class="mb-0">Shopping Cart</h6>
       </div>
       <div class="card-body">
-        <div class="table-responsive" style="max-height:400px;overflow:auto;">
+        <div class="table-responsive checkout-table-scroll">
           <table class="table table-sm table-hover" id="cart-table">
             <thead class="table-light sticky-top">
               <tr>
@@ -82,7 +82,7 @@
               <span class="fw-bold" id="total-amount">$0.00</span>
             </div>
             <button id="btn-clear-cart" class="btn btn-outline-danger w-100 mb-2">Clear Cart</button>
-            <button id="btn-complete-sale" class="btn btn-success w-100 btn-lg" onclick="completeSale()">Complete Sale</button>
+            <button id="btn-complete-sale" class="btn btn-success w-100 btn-lg">Complete Sale</button>
           </div>
         </div>
 
@@ -97,12 +97,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script>
-let CHECKOUT_BRANCH = null;
-let CHECKOUT_CART = []; // [{product_id, name, price, quantity}, ...]
-let CURRENT_PRODUCT = null;
-
-async function searchProduct() {
+<script src="/static/js/checkout.js"></script>
   const search = document.getElementById('checkout-search').value.trim();
   if (!search) {
     document.getElementById('search-alert').innerHTML = '<div class="alert alert-warning">Please enter a barcode or product ID.</div>';

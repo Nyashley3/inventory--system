@@ -26,6 +26,32 @@ body{
   margin-bottom: 20px;
 }
 
+.max-w-900 {
+  max-width: 900px;
+}
+
+.checkout-search-result {
+  min-height: 80px;
+}
+
+.checkout-table-scroll {
+  max-height: 400px;
+  overflow: auto;
+}
+
+.sales-product-table-scroll {
+  max-height: 320px;
+  overflow: auto;
+}
+
+.input-max-140 {
+  max-width: 140px;
+}
+
+.cart-qty-input {
+  width: 70px;
+}
+
 .page-header {
   margin-bottom: 24px;
 }
@@ -95,11 +121,12 @@ table.table thead {
 
 #scanner {
   width: 100%;
-  max-width: 100%;
+  max-width: 480px;
   height: 320px;
   border-radius: 18px;
   border: 2px dashed #c7d2fe;
   background: #f8fafc;
+  margin-bottom: 10px;
 }
 
 @media (max-width: 768px) {
