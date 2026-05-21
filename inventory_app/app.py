@@ -10,6 +10,7 @@ from flask_jwt_extended import (
     jwt_required,
     get_jwt,
 )
+from sqlalchemy import text
 from werkzeug.security import generate_password_hash, check_password_hash
 
 # -----------------------------
@@ -24,7 +25,10 @@ from werkzeug.security import generate_password_hash, check_password_hash
 # -----------------------------
 
 app = Flask(__name__)
-app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL", "sqlite:///inventory.db")
+instance_dir = os.path.join(app.root_path, 'instance')
+os.makedirs(instance_dir, exist_ok=True)
+db_path = os.path.join(instance_dir, 'inventory.db')
+app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL", f"sqlite:///{os.path.abspath(db_path).replace('\\', '/')}" )
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 app.config["JWT_SECRET_KEY"] = os.environ.get("JWT_SECRET_KEY", "dev-secret-change-me")
 app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=int(os.environ.get("JWT_ACCESS_TOKEN_HOURS", "1")))
@@ -53,6 +57,9 @@ class User(db.Model):
     username = db.Column(db.String(80), unique=True, nullable=False)
     password_hash = db.Column(db.String(200), nullable=False)
     role = db.Column(db.String(32), nullable=False)  # cashier/supervisor/manager/admin
+    full_name = db.Column(db.String(120), nullable=True)
+    sex = db.Column(db.String(16), nullable=True)
+    age = db.Column(db.Integer, nullable=True)
     branch_id = db.Column(db.Integer, db.ForeignKey('branch.id'), nullable=True)
     locked = db.Column(db.Boolean, nullable=False, default=False)
     force_password_reset = db.Column(db.Boolean, nullable=False, default=False)
@@ -129,9 +136,30 @@ def validate_password(password):
         return 'Password must include at least one lowercase letter.'
     if not any(c.isdigit() for c in password):
         return 'Password must include at least one number.'
-    if not any(c in '!@#$%^&*()-_=+[]{}|;:\"\',.<>/?' for c in password):
+    if not any(c in '!@#$%^&*()-_=+[]{}|;:,.<>/?' for c in password):
         return 'Password must include at least one symbol.'
     return None
+
+
+def generate_temporary_password(length=14):
+    import secrets, string
+    alphabet = string.ascii_letters + string.digits + '!@#$%^&*()-_=+[]{}|;:,.<>?'
+    return ''.join(secrets.choice(alphabet) for _ in range(length))
+
+
+def ensure_user_profile_columns():
+    if 'sqlite' not in app.config['SQLALCHEMY_DATABASE_URI']:
+        return
+    with app.app_context():
+        with db.engine.connect() as conn:
+            existing = [row[1] for row in conn.execute(text("PRAGMA table_info(user)")).all()]
+            if 'full_name' not in existing:
+                conn.execute(text("ALTER TABLE user ADD COLUMN full_name VARCHAR(120)"))
+            if 'sex' not in existing:
+                conn.execute(text("ALTER TABLE user ADD COLUMN sex VARCHAR(16)"))
+            if 'age' not in existing:
+                conn.execute(text("ALTER TABLE user ADD COLUMN age INTEGER"))
+            conn.commit()
 
 
 def get_current_user():
@@ -186,7 +214,7 @@ def role_required(allowed_roles):
 
 
 @app.route('/api/signup', methods=['POST'])
-@role_required(['manager'])
+@role_required(['manager', 'admin'])
 def signup():
     """Create a user. Only managers can create new accounts.
     JSON: {username, password, role, branch_id (optional)}
@@ -196,11 +224,14 @@ def signup():
     username = data.get('username')
     password = data.get('password')
     role = data.get('role', 'cashier')
+    full_name = data.get('full_name')
+    sex = data.get('sex')
+    age = data.get('age')
     branch_id = data.get('branch_id')
     manager = get_current_user()
 
-    if not username or not password:
-        return api_error('Please enter both username and password.', 400)
+    if not username:
+        return api_error('Please enter a username.', 400)
 
     if role not in ['cashier', 'supervisor', 'manager']:
         return api_error('Invalid role. Only cashier, supervisor, and manager may be assigned.', 400)
@@ -216,18 +247,34 @@ def signup():
             if branch_id != manager.branch_id:
                 return api_error('You may only create users for your own branch.', 403)
 
+    if age is not None:
+        try:
+            age = int(age)
+            if age < 0:
+                return api_error('Age must be a non-negative number.', 400)
+        except (TypeError, ValueError):
+            return api_error('Age must be a valid number.', 400)
+
     if User.query.filter_by(username=username).first():
         return api_error(f'The username "{username}" is already taken.', 400)
+
+    generated_password = False
+    if not password:
+        password = generate_temporary_password()
+        generated_password = True
 
     password_error = validate_password(password)
     if password_error:
         return api_error(password_error, 400)
 
-    user = User(username=username, role=role, branch_id=branch_id, force_password_reset=True)
+    user = User(username=username, role=role, sex=sex, age=age, branch_id=branch_id, force_password_reset=True)
     user.set_password(password)
     db.session.add(user)
     db.session.commit()
-    return jsonify({'id': user.id, 'username': user.username, 'role': user.role, 'force_password_reset': user.force_password_reset}), 201
+    response = {'id': user.id, 'username': user.username, 'role': user.role, 'force_password_reset': user.force_password_reset}
+    if generated_password:
+        response['temp_password'] = password
+    return jsonify(response), 201
 
 
 @app.route('/api/login', methods=['POST'])
@@ -372,7 +419,10 @@ def list_users():
         {
             'id': u.id,
             'username': u.username,
+            'full_name': u.full_name,
             'role': u.role,
+            'sex': u.sex,
+            'age': u.age,
             'branch_id': u.branch_id,
             'locked': u.locked,
             'force_password_reset': u.force_password_reset,
@@ -399,28 +449,53 @@ def set_user_lock(user_id):
     return jsonify({'id': user.id, 'username': user.username, 'locked': user.locked})
 
 
+@app.route('/api/users/<int:user_id>', methods=['DELETE'])
+@role_required(['admin'])
+def delete_user(user_id):
+    admin = get_current_user()
+    user = User.query.get_or_404(user_id)
+    if user.role == 'admin':
+        return api_error('Administrator accounts cannot be deleted through this interface.', 403)
+    if user.id == admin.id:
+        return api_error('You cannot delete your own account.', 403)
+    db.session.delete(user)
+    db.session.commit()
+    return jsonify({'msg': 'User deleted successfully.'})
+
+
 @app.route('/api/users/<int:user_id>/password', methods=['POST'])
-@role_required(['manager'])
+@role_required(['manager', 'admin'])
 def reset_user_password(user_id):
     data = request.get_json() or {}
     password = data.get('password')
     if not password:
-        return api_error('New password is required to reset user password.', 400)
+        # For admin-initiated resets, if no password supplied, generate a temporary one
+        requester = get_current_user()
+        if requester.role != 'admin':
+            return api_error('New password is required to reset user password.', 400)
+        password = generate_temporary_password()
+
     password_error = validate_password(password)
     if password_error:
         return api_error(password_error, 400)
     user = User.query.get_or_404(user_id)
     manager = get_current_user()
-    if user.role == 'admin':
-        return api_error('Administrator passwords cannot be reset through this interface.', 403)
-    if manager.role != 'admin' and user.branch_id != manager.branch_id:
-        return api_error('You may only reset passwords for users in your own branch.', 403)
+    # managers cannot reset admin passwords and can only act within their branch
+    if manager.role != 'admin':
+        if user.role == 'admin':
+            return api_error('Administrator passwords cannot be reset through this interface.', 403)
+        if user.branch_id != manager.branch_id:
+            return api_error('You may only reset passwords for users in your own branch.', 403)
+    # admin may reset any user's password
     user.set_password(password)
     user.force_password_reset = True
     user.failed_login_attempts = 0
     user.locked = False
     db.session.commit()
-    return jsonify({'id': user.id, 'username': user.username, 'force_password_reset': user.force_password_reset})
+    resp = {'id': user.id, 'username': user.username, 'force_password_reset': user.force_password_reset}
+    if manager.role == 'admin' and not data.get('password'):
+        resp['temp_password'] = password
+    return jsonify(resp)
 
 
 @app.route('/api/change-password', methods=['POST'])
@@ -620,6 +695,26 @@ def sales_report():
 # -----------------------------
 
 
+@app.route('/api/profile')
+@auth_required
+def profile():
+    user = get_current_user()
+    if user is None:
+        return api_error('Authentication required.', 401)
+    return jsonify({
+        'id': user.id,
+        'username': user.username,
+        'full_name': user.full_name,
+        'role': user.role,
+        'sex': user.sex,
+        'age': user.age,
+        'branch_id': user.branch_id,
+        'locked': user.locked,
+        'force_password_reset': user.force_password_reset,
+        'created_at': user.created_at.isoformat()
+    })
+
+
 @app.route('/api/alerts')
 @auth_required
 def alerts():
@@ -640,6 +735,17 @@ def alerts():
 # -----------------------------
 # Utility routes: init DB and simple web UI
 # -----------------------------
+
+
+migration_done = False
+
+@app.before_request
+def maybe_migrate_user_schema():
+    global migration_done
+    if migration_done:
+        return
+    ensure_user_profile_columns()
+    migration_done = True
 
 
 @jwt.token_in_blocklist_loader
@@ -705,52 +811,49 @@ def index():
 
 
 @app.route('/dashboard')
-@auth_required
 def dashboard():
     return render_template('dashboard.html')
 
 
 # GUI pages
 @app.route('/products')
-@role_required(['supervisor', 'manager'])
 def products_page():
     return render_template('products.html')
 
 
 @app.route('/branches_page')
-@role_required(['manager'])
 def branches_page():
     return render_template('branches.html')
 
 
 @app.route('/stocks_page')
-@role_required(['supervisor', 'manager'])
 def stocks_page():
     return render_template('stocks.html')
 
 
 @app.route('/sales_page')
-@role_required(['cashier', 'supervisor', 'manager'])
 def sales_page():
     return render_template('sales_page.html')
 
 
 @app.route('/reports_page')
-@role_required(['supervisor', 'manager'])
 def reports_page():
     return render_template('reports.html')
 
 
 @app.route('/employees_page')
-@role_required(['manager'])
 def employees_page():
     return render_template('employees.html')
 
 
 @app.route('/checkout')
-@role_required(['cashier'])
 def checkout():
     return render_template('checkout.html')
+
+
+@app.route('/profile')
+def profile_page():
+    return render_template('profile.html')
 
 
 class RevokedToken(db.Model):

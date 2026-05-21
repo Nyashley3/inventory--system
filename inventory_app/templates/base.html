@@ -23,11 +23,17 @@
           <li class="nav-item" data-roles="supervisor,manager"><a class="nav-link" href="/stocks_page">Stocks</a></li>
           <li class="nav-item" data-roles="cashier,supervisor,manager"><a class="nav-link" href="/sales_page">Sales</a></li>
           <li class="nav-item" data-roles="supervisor,manager"><a class="nav-link" href="/reports_page">Reports</a></li>
-          <li class="nav-item" data-roles="manager"><a class="nav-link" href="/employees_page">Employees</a></li>
+          <li class="nav-item" data-roles="manager,admin"><a class="nav-link" href="/employees_page">Employees</a></li>
         </ul>
         <div class="d-flex align-items-center">
-          <span id="nav-user" class="text-white me-3"></span>
-          <button id="nav-logout" class="btn btn-outline-light btn-sm">Logout</button>
+          <div class="dropdown">
+            <a id="nav-user" class="text-white me-3 dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false"></a>
+            <ul class="dropdown-menu dropdown-menu-end" id="nav-user-menu">
+              <li><a class="dropdown-item" id="nav-profile-link" href="/profile" data-hide-for-admin="true">Profile</a></li>
+              <li><hr class="dropdown-divider"></li>
+              <li><a class="dropdown-item" id="nav-logout-link" href="#">Logout</a></li>
+            </ul>
+          </div>
         </div>
       </div>
     </div>

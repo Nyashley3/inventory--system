@@ -34,14 +34,18 @@ async function apiDelete(path) {
   return parseResponse(res);
 }
 
-document.getElementById('nav-logout')?.addEventListener('click', async ()=>{
+// unified logout handler for both navbar and dropdown
+function doLogout(){
   const token = localStorage.getItem('token');
   if (token) {
-    await fetch('/api/logout', {method:'POST', headers: {'Authorization': 'Bearer '+token}}).catch(()=>{});
+    fetch('/api/logout', {method:'POST', headers: {'Authorization': 'Bearer '+token}}).catch(()=>{});
   }
   localStorage.removeItem('token');
   location.href='/';
-});
+}
+
+document.getElementById('nav-logout')?.addEventListener('click', doLogout);
+document.getElementById('nav-logout-link')?.addEventListener('click', (e)=>{ e.preventDefault(); doLogout(); });
 
 (async ()=>{
   try {
@@ -49,15 +53,25 @@ document.getElementById('nav-logout')?.addEventListener('click', async ()=>{
     if (!token) return;
     const payload = JSON.parse(atob(token.split('.')[1]));
     const role = payload.role || '';
-    document.getElementById('nav-user').innerText = (payload.sub || '') + (role ? ` • ${role}` : '');
+    const navUser = document.getElementById('nav-user');
+    if (navUser) navUser.innerText = (payload.sub || '') + (role ? ` • ${role}` : '');
+
+    // role-based menu visibility
     document.querySelectorAll('[data-roles]').forEach(li => {
       const roles = li.dataset.roles.split(',');
-      if (role !== 'admin' && !roles.includes(role)) {
-        li.style.display = 'none';
+      if (role === 'admin') {
+        // admin sees items unless explicitly hidden for admin
+        if (li.dataset.hideForAdmin === 'true') li.style.display = 'none'; else li.style.display = '';
       } else {
-        li.style.display = '';
+        if (!roles.includes(role)) li.style.display = 'none'; else li.style.display = '';
       }
     });
+
+    // hide items explicitly marked as hidden for admin
+    document.querySelectorAll('[data-hide-for-admin]').forEach(el => {
+      if (role === 'admin') el.style.display = 'none'; else el.style.display = '';
+    });
+
   } catch (e) {
     console.warn('Unable to decode token', e);
   }

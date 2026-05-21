@@ -2,17 +2,31 @@
 {% block content %}
 <h3>Employees</h3>
 <p class="section-intro">As manager or admin, view every user account, lock access, reset passwords, and create new users for your branch.</p>
-<div id="employees-alert"></div>
+<div id="page-alert"></div>
 <div class="card mb-4 p-3">
   <h5>Create User</h5>
+  <p class="text-muted">A temporary password will be generated automatically and displayed after creation.</p>
   <div class="row g-2 align-items-end">
     <div class="col-md-3">
       <label for="new-username" class="form-label">Username</label>
       <input id="new-username" class="form-control" placeholder="Username">
     </div>
     <div class="col-md-3">
-      <label for="new-password" class="form-label">Password</label>
-      <input id="new-password" type="password" class="form-control" placeholder="Password">
+      <label for="new-fullname" class="form-label">Full Name</label>
+      <input id="new-fullname" class="form-control" placeholder="Full Name">
+    </div>
+    <div class="col-md-2">
+      <label for="new-sex" class="form-label">Sex</label>
+      <select id="new-sex" class="form-select">
+        <option value="">Select</option>
+        <option value="Female">Female</option>
+        <option value="Male">Male</option>
+        <option value="Other">Other</option>
+      </select>
+    </div>
+    <div class="col-md-2">
+      <label for="new-age" class="form-label">Age</label>
+      <input id="new-age" type="number" min="0" class="form-control" placeholder="Age">
     </div>
     <div class="col-md-2">
       <label for="new-role" class="form-label">Role</label>
@@ -31,13 +45,28 @@
     </div>
   </div>
 </div>
+<div class="card mb-4 p-3" id="employee-detail-card" style="display:none;">
+  <h5>Selected User Details</h5>
+  <p><strong>Username:</strong> <span id="detail-username">-</span></p>
+  <p><strong>Full Name:</strong> <span id="detail-fullname">-</span></p>
+  <p><strong>Role:</strong> <span id="detail-role">-</span></p>
+  <p><strong>Branch ID:</strong> <span id="detail-branch">-</span></p>
+  <p><strong>Sex:</strong> <span id="detail-sex">-</span></p>
+  <p><strong>Age:</strong> <span id="detail-age">-</span></p>
+  <p><strong>Status:</strong> <span id="detail-status">-</span></p>
+  <p><strong>Created:</strong> <span id="detail-created">-</span></p>
+  <button id="clear-selected-user" class="btn btn-sm btn-secondary">Clear selection</button>
+</div>
 <table class="table table-sm" id="employees-table">
   <thead>
     <tr>
       <th>ID</th>
       <th>Username</th>
+      <th>Name</th>
       <th>Role</th>
       <th>Branch</th>
+      <th>Sex</th>
+      <th>Age</th>
       <th>Status</th>
       <th>Created</th>
       <th>Actions</th>

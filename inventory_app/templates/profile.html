@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block content %}
+<h3>Profile</h3>
+<p class="section-intro">Your profile shows your account information. Only your password can be changed here.</p>
+<div id="profile-alert"></div>
+<div class="row">
+  <div class="col-md-5">
+    <div class="card p-3 mb-4">
+      <h5>Account Information</h5>
+      <p><strong>Username:</strong> <span id="profile-username">-</span></p>
+      <p><strong>Name:</strong> <span id="profile-fullname">-</span></p>
+      <p><strong>Role:</strong> <span id="profile-role">-</span></p>
+      <p><strong>Branch ID:</strong> <span id="profile-branch">-</span></p>
+      <p><strong>Sex:</strong> <span id="profile-sex">-</span></p>
+      <p><strong>Age:</strong> <span id="profile-age">-</span></p>
+      <p><strong>Status:</strong> <span id="profile-status">-</span></p>
+      <p><strong>Created:</strong> <span id="profile-created">-</span></p>
+    </div>
+  </div>
+  <div class="col-md-7">
+    <div class="card p-3 mb-4">
+      <h5>Change Password</h5>
+      <div class="mb-3">
+        <label class="form-label">Current password</label>
+        <input id="cur-password" type="password" class="form-control">
+      </div>
+      <div class="mb-3">
+        <label class="form-label">New password</label>
+        <input id="new-password" type="password" class="form-control">
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Confirm new password</label>
+        <input id="confirm-password" type="password" class="form-control">
+      </div>
+      <button id="change-password" class="btn btn-primary">Change Password</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/profile.js"></script>
+{% endblock %}
