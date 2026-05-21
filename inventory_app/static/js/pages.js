@@ -34,7 +34,14 @@ async function apiDelete(path) {
   return parseResponse(res);
 }
 
-document.getElementById('nav-logout')?.addEventListener('click', ()=>{ localStorage.removeItem('token'); location.href='/'; });
+document.getElementById('nav-logout')?.addEventListener('click', async ()=>{
+  const token = localStorage.getItem('token');
+  if (token) {
+    await fetch('/api/logout', {method:'POST', headers: {'Authorization': 'Bearer '+token}}).catch(()=>{});
+  }
+  localStorage.removeItem('token');
+  location.href='/';
+});
 
 (async ()=>{
   try {

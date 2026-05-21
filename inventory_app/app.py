@@ -1,3 +1,4 @@
+import os
 from datetime import datetime, timedelta
 from functools import wraps
 
@@ -17,16 +18,21 @@ from werkzeug.security import generate_password_hash, check_password_hash
 # Architecture:
 # - Single Flask app (fast to deploy, easy to open in Visual Studio / NetBeans)
 # - SQLite database via SQLAlchemy (file-based, low-cost, portable)
-# - JWT-based auth with roles: cashier, supervisor, manager
+# - JWT-based auth with roles: cashier, supervisor, manager, admin
 # - Models: User, Branch, Product, ProductStock, Sale, SaleItem
 # - API endpoints below (see each route's docstring for details)
 # -----------------------------
 
 app = Flask(__name__)
-app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///inventory.db"
+app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL", "sqlite:///inventory.db")
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-app.config["JWT_SECRET_KEY"] = "super-secure-please-change-this-to-32+chars"
-app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(days=7)
+app.config["JWT_SECRET_KEY"] = os.environ.get("JWT_SECRET_KEY", "dev-secret-change-me")
+app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=int(os.environ.get("JWT_ACCESS_TOKEN_HOURS", "1")))
+app.config["ENABLE_DB_INIT"] = os.environ.get("ENABLE_DB_INIT", "false").lower() == "true"
+app.config["DB_INIT_SECRET"] = os.environ.get("DB_INIT_SECRET", "")
+app.config["FLASK_DEBUG"] = os.environ.get("FLASK_DEBUG", "true").lower() == "true"
+app.config["JWT_COOKIE_SECURE"] = os.environ.get("FLASK_ENV", "development").lower() == "production"
+app.config["MAX_FAILED_LOGIN_ATTEMPTS"] = int(os.environ.get("MAX_FAILED_LOGIN_ATTEMPTS", "5"))
 
 db = SQLAlchemy(app)
 jwt = JWTManager(app)
@@ -46,9 +52,12 @@ class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
     password_hash = db.Column(db.String(200), nullable=False)
-    role = db.Column(db.String(32), nullable=False)  # cashier/supervisor/manager
+    role = db.Column(db.String(32), nullable=False)  # cashier/supervisor/manager/admin
     branch_id = db.Column(db.Integer, db.ForeignKey('branch.id'), nullable=True)
     locked = db.Column(db.Boolean, nullable=False, default=False)
+    force_password_reset = db.Column(db.Boolean, nullable=False, default=False)
+    failed_login_attempts = db.Column(db.Integer, nullable=False, default=0)
+    last_failed_login_at = db.Column(db.DateTime, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     def set_password(self, password):
@@ -111,6 +120,42 @@ def api_error(message, status=400):
     return jsonify({'msg': message}), status
 
 
+def validate_password(password):
+    if not password or len(password) < 10:
+        return 'Password must be at least 10 characters long.'
+    if not any(c.isupper() for c in password):
+        return 'Password must include at least one uppercase letter.'
+    if not any(c.islower() for c in password):
+        return 'Password must include at least one lowercase letter.'
+    if not any(c.isdigit() for c in password):
+        return 'Password must include at least one number.'
+    if not any(c in '!@#$%^&*()-_=+[]{}|;:\"\',.<>/?' for c in password):
+        return 'Password must include at least one symbol.'
+    return None
+
+
+def get_current_user():
+    claims = get_jwt()
+    username = claims.get('sub')
+    return User.query.filter_by(username=username).first()
+
+
+def auth_required(fn):
+    @wraps(fn)
+    @jwt_required()
+    def wrapper(*args, **kwargs):
+        user = get_current_user()
+        if user is None:
+            return api_error('Authentication required.', 401)
+        if user.locked:
+            return api_error('This account is locked. Contact a manager or administrator.', 403)
+        if user.force_password_reset and fn.__name__ != 'change_password':
+            return api_error('Temporary password must be changed before using the system.', 403)
+        return fn(*args, **kwargs)
+
+    return wrapper
+
+
 def role_required(allowed_roles):
     def decorator(fn):
         @wraps(fn)
@@ -118,8 +163,15 @@ def role_required(allowed_roles):
         def wrapper(*args, **kwargs):
             claims = get_jwt()
             role = claims.get('role')
+            if role == 'admin':
+                return fn(*args, **kwargs)
             if role not in allowed_roles:
                 return api_error('Insufficient privileges for this action.', 403)
+            user = get_current_user()
+            if user and user.locked:
+                return api_error('This account is locked. Contact a manager or administrator.', 403)
+            if user and user.force_password_reset and fn.__name__ != 'change_password':
+                return api_error('Temporary password must be changed before using the system.', 403)
             return fn(*args, **kwargs)
 
         return wrapper
@@ -134,8 +186,9 @@ def role_required(allowed_roles):
 
 
 @app.route('/api/signup', methods=['POST'])
+@role_required(['manager'])
 def signup():
-    """Create a user. In production protect this route (only managers should create accounts).
+    """Create a user. Only managers can create new accounts.
     JSON: {username, password, role, branch_id (optional)}
     Returns: user info (no password)
     """
@@ -144,18 +197,37 @@ def signup():
     password = data.get('password')
     role = data.get('role', 'cashier')
     branch_id = data.get('branch_id')
+    manager = get_current_user()
 
     if not username or not password:
         return api_error('Please enter both username and password.', 400)
 
+    if role not in ['cashier', 'supervisor', 'manager']:
+        return api_error('Invalid role. Only cashier, supervisor, and manager may be assigned.', 400)
+
+    if manager.role != 'admin':
+        if branch_id is None:
+            branch_id = manager.branch_id
+        else:
+            try:
+                branch_id = int(branch_id)
+            except (TypeError, ValueError):
+                return api_error('branch_id must be a valid number.', 400)
+            if branch_id != manager.branch_id:
+                return api_error('You may only create users for your own branch.', 403)
+
     if User.query.filter_by(username=username).first():
         return api_error(f'The username "{username}" is already taken.', 400)
 
-    user = User(username=username, role=role, branch_id=branch_id)
+    password_error = validate_password(password)
+    if password_error:
+        return api_error(password_error, 400)
+
+    user = User(username=username, role=role, branch_id=branch_id, force_password_reset=True)
     user.set_password(password)
     db.session.add(user)
     db.session.commit()
-    return jsonify({'id': user.id, 'username': user.username, 'role': user.role}), 201
+    return jsonify({'id': user.id, 'username': user.username, 'role': user.role, 'force_password_reset': user.force_password_reset}), 201
 
 
 @app.route('/api/login', methods=['POST'])
@@ -172,13 +244,31 @@ def login():
 
     user = User.query.filter_by(username=username).first()
     if not user or not user.check_password(password):
+        if user:
+            user.failed_login_attempts += 1
+            user.last_failed_login_at = datetime.utcnow()
+            if user.failed_login_attempts >= app.config['MAX_FAILED_LOGIN_ATTEMPTS']:
+                user.locked = True
+            db.session.commit()
         return api_error('Invalid username or password. Please try again.', 401)
+
     if user.locked:
-        return api_error('This account has been locked. Contact a manager to restore access.', 403)
+        return api_error('This account is locked. Contact a manager or administrator.', 403)
+
+    if user.failed_login_attempts > 0:
+        user.failed_login_attempts = 0
+        user.last_failed_login_at = None
+        db.session.commit()
 
     additional_claims = {"role": user.role, "user_id": user.id}
     access_token = create_access_token(identity=user.username, additional_claims=additional_claims)
-    return jsonify({'access_token': access_token, 'role': user.role, 'user_id': user.id}), 200
+    response = {
+        'access_token': access_token,
+        'role': user.role,
+        'user_id': user.id,
+        'force_password_reset': user.force_password_reset,
+    }
+    return jsonify(response), 200
 
 
 # -----------------------------
@@ -187,9 +277,13 @@ def login():
 
 
 @app.route('/api/branches', methods=['GET'])
-@jwt_required()
+@auth_required
 def list_branches():
-    branches = Branch.query.all()
+    user = get_current_user()
+    if user.role == 'admin':
+        branches = Branch.query.all()
+    else:
+        branches = Branch.query.filter_by(id=user.branch_id).all() if user.branch_id else []
     return jsonify([{'id': b.id, 'name': b.name, 'address': b.address} for b in branches])
 
 
@@ -213,11 +307,14 @@ def create_branch():
 
 
 @app.route('/api/products', methods=['GET'])
-@jwt_required()
+@auth_required
 def list_products():
     # Optional query params: branch_id to include stock levels or barcode to find by barcode
+    user = get_current_user()
     branch_id = request.args.get('branch_id', type=int)
     barcode = request.args.get('barcode')
+    if branch_id and user.role != 'admin' and user.branch_id != branch_id:
+        return api_error('You may only view stock for your own branch.', 403)
     if barcode:
         p = Product.query.filter_by(barcode=barcode).first()
         if not p:
@@ -254,9 +351,9 @@ def create_product():
     if Product.query.filter_by(barcode=barcode).first():
         return api_error(f'A product with barcode "{barcode}" already exists.', 400)
     currency = data.get('currency', 'USD').upper()
-    supported = ['USD','EUR','GBP','CAD','AUD','JPY']
+    supported = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'JPY']
     if currency not in supported:
-        return api_error('Currency must be one of: ' + supported.join(', '), 400)
+        return api_error('Currency must be one of: ' + ', '.join(supported), 400)
     p = Product(name=name, barcode=barcode, price=price, currency=currency, description=desc)
     db.session.add(p)
     db.session.commit()
@@ -266,7 +363,11 @@ def create_product():
 @app.route('/api/users', methods=['GET'])
 @role_required(['manager'])
 def list_users():
-    users = User.query.order_by(User.created_at.desc()).all()
+    user = get_current_user()
+    if user.role == 'admin':
+        users = User.query.order_by(User.created_at.desc()).all()
+    else:
+        users = User.query.filter_by(branch_id=user.branch_id).order_by(User.created_at.desc()).all()
     return jsonify([
         {
             'id': u.id,
@@ -274,6 +375,7 @@ def list_users():
             'role': u.role,
             'branch_id': u.branch_id,
             'locked': u.locked,
+            'force_password_reset': u.force_password_reset,
             'created_at': u.created_at.isoformat()
         }
         for u in users
@@ -287,8 +389,11 @@ def set_user_lock(user_id):
     if 'locked' not in data:
         return api_error('locked field is required.', 400)
     user = User.query.get_or_404(user_id)
-    if user.username == 'admin':
-        return api_error('The default admin account cannot be locked through this interface.', 403)
+    manager = get_current_user()
+    if user.role == 'admin':
+        return api_error('Administrator accounts cannot be locked through this interface.', 403)
+    if manager.role != 'admin' and user.branch_id != manager.branch_id:
+        return api_error('You may only lock users from your own branch.', 403)
     user.locked = bool(data.get('locked'))
     db.session.commit()
     return jsonify({'id': user.id, 'username': user.username, 'locked': user.locked})
@@ -301,10 +406,54 @@ def reset_user_password(user_id):
     password = data.get('password')
     if not password:
         return api_error('New password is required to reset user password.', 400)
+    password_error = validate_password(password)
+    if password_error:
+        return api_error(password_error, 400)
     user = User.query.get_or_404(user_id)
+    manager = get_current_user()
+    if user.role == 'admin':
+        return api_error('Administrator passwords cannot be reset through this interface.', 403)
+    if manager.role != 'admin' and user.branch_id != manager.branch_id:
+        return api_error('You may only reset passwords for users in your own branch.', 403)
     user.set_password(password)
+    user.force_password_reset = True
+    user.failed_login_attempts = 0
+    user.locked = False
     db.session.commit()
-    return jsonify({'id': user.id, 'username': user.username})
+    return jsonify({'id': user.id, 'username': user.username, 'force_password_reset': user.force_password_reset})
+
+
+@app.route('/api/change-password', methods=['POST'])
+@jwt_required()
+def change_password():
+    data = request.get_json() or {}
+    old_password = data.get('old_password')
+    new_password = data.get('new_password')
+    if not old_password or not new_password:
+        return api_error('Both current and new password are required.', 400)
+    user = get_current_user()
+    if user is None or not user.check_password(old_password):
+        return api_error('Current password is incorrect.', 403)
+    password_error = validate_password(new_password)
+    if password_error:
+        return api_error(password_error, 400)
+    user.set_password(new_password)
+    user.force_password_reset = False
+    user.failed_login_attempts = 0
+    user.locked = False
+    db.session.commit()
+    return jsonify({'msg': 'Password updated successfully.'}), 200
+
+
+@app.route('/api/logout', methods=['POST'])
+@jwt_required()
+def logout():
+    jti = get_jwt().get('jti')
+    if jti:
+        revoked = RevokedToken(jti=jti)
+        db.session.add(revoked)
+        db.session.commit()
+    return jsonify({'msg': 'Logged out successfully.'}), 200
 
 
 @app.route('/api/products/<int:product_id>', methods=['PUT'])
@@ -334,6 +483,7 @@ def set_stock():
     """Set or update stock for a product at a branch.
     JSON: {product_id, branch_id, quantity, threshold}
     """
+    user = get_current_user()
     data = request.get_json() or {}
     product_id = data.get('product_id')
     branch_id = data.get('branch_id')
@@ -341,6 +491,8 @@ def set_stock():
     threshold = data.get('threshold', 5)
     if not product_id or not branch_id:
         return api_error('Please provide both product_id and branch_id to update stock.', 400)
+    if user.role != 'admin' and user.branch_id != int(branch_id):
+        return api_error('You may only update stock for your own branch.', 403)
     try:
         product_id = int(product_id)
         branch_id = int(branch_id)
@@ -374,6 +526,7 @@ def create_sale():
     """Create a sale and decrement stock.
     JSON: {branch_id, items: [{product_id, quantity}]}
     """
+    user = get_current_user()
     claims = get_jwt()
     user_id = claims.get('user_id')
     data = request.get_json() or {}
@@ -385,6 +538,8 @@ def create_sale():
         branch_id = int(branch_id)
     except (TypeError, ValueError):
         return api_error('Branch ID must be a valid number.', 400)
+    if user.role != 'admin' and user.branch_id != branch_id:
+        return api_error('You may only record sales for your own branch.', 403)
 
     sale = Sale(branch_id=branch_id, user_id=user_id, total=0.0)
     total = 0.0
@@ -433,8 +588,13 @@ def create_sale():
 @app.route('/api/reports/sales')
 @role_required(['supervisor', 'manager'])
 def sales_report():
+    user = get_current_user()
     r = request.args.get('range', 'daily')
     branch_id = request.args.get('branch_id', type=int)
+    if user.role != 'admin':
+        branch_id = user.branch_id
+    if branch_id is None:
+        return api_error('Branch ID is required for this report.', 400)
     now = datetime.utcnow()
     if r == 'daily':
         start = datetime(now.year, now.month, now.day)
@@ -461,9 +621,12 @@ def sales_report():
 
 
 @app.route('/api/alerts')
-@jwt_required()
+@auth_required
 def alerts():
+    user = get_current_user()
     branch_id = request.args.get('branch_id', type=int)
+    if user.role != 'admin':
+        branch_id = user.branch_id
     q = ProductStock.query
     if branch_id:
         q = q.filter_by(branch_id=branch_id)
@@ -479,6 +642,27 @@ def alerts():
 # -----------------------------
 
 
+@jwt.token_in_blocklist_loader
+def check_if_token_revoked(jwt_header, jwt_payload):
+    jti = jwt_payload.get('jti')
+    if not jti:
+        return True
+    if RevokedToken.query.filter_by(jti=jti).first():
+        return True
+    user = User.query.filter_by(username=jwt_payload.get('sub')).first()
+    return user is None or user.locked
+
+
+@app.after_request
+def set_secure_headers(response):
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['X-Frame-Options'] = 'DENY'
+    response.headers['Referrer-Policy'] = 'no-referrer'
+    response.headers['Permissions-Policy'] = 'geolocation=(), microphone=(), camera=()'
+    response.headers['Content-Security-Policy'] = "default-src 'self'; script-src 'self' https://cdn.jsdelivr.net https://unpkg.com; style-src 'self' https://cdn.jsdelivr.net; connect-src 'self' https://cdn.jsdelivr.net https://unpkg.com; object-src 'none'; frame-ancestors 'none'; base-uri 'self';"
+    return response
+
+
 @app.errorhandler(404)
 def handle_not_found(error):
     return api_error('The requested resource was not found.', 404)
@@ -491,18 +675,28 @@ def handle_internal_error(error):
 
 @app.route('/init-db')
 def init_db():
-    # Warning: destructive if db exists. Use for initial setup in dev.
+    if not app.config['ENABLE_DB_INIT']:
+        return api_error('Database initialization is disabled.', 403)
+    init_secret = request.args.get('init_key')
+    if not init_secret or init_secret != app.config['DB_INIT_SECRET']:
+        return api_error('Invalid initialization token.', 403)
+
     db.drop_all()
     db.create_all()
-    # create a default branch and manager user for bootstrapping
     b = Branch(name='Main Branch', address='HQ')
     db.session.add(b)
     db.session.commit()
-    m = User(username='admin', role='manager', branch_id=b.id)
-    m.set_password('admin123')
-    db.session.add(m)
+
+    admin_username = os.environ.get('ADMIN_USERNAME', 'admin')
+    admin_password = os.environ.get('ADMIN_PASSWORD')
+    if not admin_password:
+        return api_error('ADMIN_PASSWORD must be configured to create the admin account.', 500)
+
+    admin = User(username=admin_username, role='admin', branch_id=b.id, force_password_reset=False)
+    admin.set_password(admin_password)
+    db.session.add(admin)
     db.session.commit()
-    return jsonify({'msg': 'db initialized', 'manager': 'admin / admin123', 'branch_id': b.id})
+    return jsonify({'msg': 'db initialized', 'admin': admin_username, 'branch_id': b.id})
 
 
 @app.route('/')
@@ -551,10 +745,16 @@ def checkout():
     return render_template('checkout.html')
 
 
+class RevokedToken(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    jti = db.Column(db.String(128), unique=True, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
 @app.route('/static/<path:filename>')
 def static_files(filename):
     return send_from_directory('static', filename)
 
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(host='0.0.0.0', port=5000, debug=app.config['FLASK_DEBUG'])

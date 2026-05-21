@@ -30,35 +30,70 @@
           <button id="btn-login" class="btn btn-primary w-100">Login</button>
         </div>
         <div class="col-md-6">
-          <h5>Signup</h5>
-          <div class="mb-3"><input id="signup-username" class="form-control" placeholder="username"></div>
-          <div class="mb-3"><input id="signup-password" type="password" class="form-control" placeholder="password"></div>
-          <div class="mb-3">
-            <select id="signup-role" class="form-select"><option value="cashier">cashier</option><option value="supervisor">supervisor</option></select>
-          </div>
-          <button id="btn-signup" class="btn btn-outline-primary w-100">Signup</button>
+          <h5>Account access</h5>
+          <p>New accounts must be created by an existing manager or administrator. Contact your administrator for access.</p>
         </div>
       </div>
     </div>
   </div>
   <script>
-    const alertEl = (msg, cls='danger') => document.getElementById('alert').innerHTML = `<div class="alert alert-${cls}">${msg}</div>`;
-    document.getElementById('btn-login').onclick = async () => {
-      const u = document.getElementById('login-username').value;
-      const p = document.getElementById('login-password').value;
-      const res = await fetch('/api/login', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({username:u,password:p})});
-      const j = await res.json();
-      if (res.ok) { localStorage.setItem('token', j.access_token); location.href='/dashboard'; }
-      else alertEl(j.msg||JSON.stringify(j));
+    const alertContainer = document.getElementById('alert');
+    const alertEl = (msg, cls='danger') => {
+      alertContainer.innerHTML = `<div class="alert alert-${cls} alert-dismissible fade show" role="alert">${msg}<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button></div>`;
+    };
+
+    const usernameInput = document.getElementById('login-username');
+    const passwordInput = document.getElementById('login-password');
+    const loginButton = document.getElementById('btn-login');
+
+    async function handleLogin(event) {
+      if (event) event.preventDefault();
+      const u = usernameInput.value.trim();
+      const p = passwordInput.value;
+      if (!u || !p) {
+        alertEl('Please enter both username and password.', 'warning');
+        return;
+      }
+
+      loginButton.disabled = true;
+      loginButton.innerText = 'Signing in...';
+      try {
+        const res = await fetch('/api/login', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({username: u, password: p})
+        });
+        let body;
+        try {
+          body = await res.json();
+        } catch (parseError) {
+          body = {msg: res.statusText || 'Unexpected response from server.'};
+        }
+
+        if (res.ok && body.access_token) {
+          localStorage.setItem('token', body.access_token);
+          location.href = '/dashboard';
+          return;
+        }
+
+        const message = body.msg || `Login failed (${res.status}).`;
+        alertEl(message, 'danger');
+        console.error('Login failed', res.status, body);
+      } catch (err) {
+        alertEl('Unable to reach the server. Please make sure the app is running and try again.', 'danger');
+        console.error('Login error', err);
+      } finally {
+        loginButton.disabled = false;
+        loginButton.innerText = 'Login';
+      }
     }
-    document.getElementById('btn-signup').onclick = async () => {
-      const u = document.getElementById('signup-username').value;
-      const p = document.getElementById('signup-password').value;
-      const role = document.getElementById('signup-role').value;
-      const res = await fetch('/api/signup',{method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({username:u,password:p,role})});
-      const j = await res.json();
-      if (res.ok) alertEl('Created user '+j.username, 'success'); else alertEl(j.msg||JSON.stringify(j));
-    }
+
+    loginButton.addEventListener('click', handleLogin);
+    [usernameInput, passwordInput].forEach(input => input.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        handleLogin(event);
+      }
+    }));
   </script>
 </body>
 </html>

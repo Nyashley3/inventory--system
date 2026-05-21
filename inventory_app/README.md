@@ -26,7 +26,28 @@ python "inventory System/inventory_app/app.py"
 
 3. Initialize DB and bootstrap admin:
 
-Open: http://localhost:5000/init-db  — creates `admin` / `admin123` and a default branch.
+Run the helper script from the inventory_app folder:
+
+```powershell
+cd "inventory_app"
+.\init-admin.ps1
+```
+
+Or run it directly with a one-line command:
+
+```powershell
+cd "inventory_app"
+.\init-admin.ps1 --admin-username admin --admin-password "MyStrongPass!23"
+```
+
+The helper will create or update the default branch and admin account.
+
+Password requirements:
+- At least 10 characters
+- At least one uppercase letter
+- At least one lowercase letter
+- At least one number
+- At least one symbol such as `!@#$%^&*()`
 
 4. Visit http://localhost:5000 and login. Use the scanner on mobile or desktop with a camera.
 
