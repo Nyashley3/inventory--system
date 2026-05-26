@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}Suppliers — MobileTill Pulse{% endblock %}
+{% block content %}
+<h3>Suppliers</h3>
+<div class="row">
+  <div class="col-md-4">
+    <div class="card mb-4">
+      <div class="card-header bg-primary text-white">
+        <h6 class="mb-0">Add Supplier</h6>
+      </div>
+      <div class="card-body">
+        <div class="mb-2"><input id="supplier-name" class="form-control" placeholder="Supplier Name"></div>
+        <div class="mb-2"><input id="supplier-contact" class="form-control" placeholder="Contact Name"></div>
+        <div class="mb-2"><input id="supplier-phone" class="form-control" placeholder="Phone"></div>
+        <div class="mb-2"><input id="supplier-email" class="form-control" placeholder="Email"></div>
+        <div class="mb-2"><input id="supplier-address" class="form-control" placeholder="Address"></div>
+        <button id="create-supplier" class="btn btn-primary w-100">Create Supplier</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header bg-info text-white">
+        <h6 class="mb-0">Suppliers List</h6>
+      </div>
+      <div class="card-body">
+        <div class="table-responsive">
+          <table class="table table-sm" id="suppliers-table">
+            <thead><tr><th>Name</th><th>Contact</th><th>Phone</th><th>Email</th><th></th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-8">
+    <div class="card mb-4">
+      <div class="card-header bg-secondary text-white">
+        <h6 class="mb-0">Purchase Orders</h6>
+      </div>
+      <div class="card-body">
+        <div class="row g-2 mb-3">
+          <div class="col-md-4"><input id="order-supplier" class="form-control" placeholder="Supplier ID"></div>
+          <div class="col-md-4"><input id="order-branch" class="form-control" placeholder="Branch ID"></div>
+          <div class="col-md-4"><input id="order-expected" class="form-control" placeholder="Expected delivery (YYYY-MM-DD)"></div>
+        </div>
+        <div id="order-items"></div>
+        <button id="add-order-item" class="btn btn-outline-secondary btn-sm mb-3">Add Order Item</button>
+        <button id="create-order" class="btn btn-primary w-100">Create Purchase Order</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header bg-warning text-dark">
+        <h6 class="mb-0">Recent Purchase Orders</h6>
+      </div>
+      <div class="card-body">
+        <div class="table-responsive">
+          <table class="table table-sm" id="orders-table">
+            <thead><tr><th>ID</th><th>Supplier</th><th>Branch</th><th>Status</th><th>Expected</th><th></th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/suppliers.js"></script>
+{% endblock %}

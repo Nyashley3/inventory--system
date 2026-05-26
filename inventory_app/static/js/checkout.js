@@ -1,5 +1,7 @@
 const checkoutSearch = document.getElementById('checkout-search');
 const checkoutBranch = document.getElementById('checkout-branch');
+const checkoutDiscount = document.getElementById('checkout-discount');
+const checkoutPaymentMethod = document.getElementById('checkout-payment-method');
 const searchAlert = document.getElementById('search-alert');
 const checkoutResult = document.getElementById('search-result');
 const productDetails = document.getElementById('product-details');
@@ -10,6 +12,13 @@ const subtotalText = document.getElementById('total-subtotal');
 const totalAmountText = document.getElementById('total-amount');
 const cartCountText = document.getElementById('stat-cart-count');
 const cartSubtotalText = document.getElementById('stat-subtotal');
+const returnTypeInput = document.getElementById('return-type');
+const returnBranchInput = document.getElementById('return-branch');
+const returnProductInput = document.getElementById('return-product');
+const returnQuantityInput = document.getElementById('return-quantity');
+const returnOriginalSaleInput = document.getElementById('return-original-sale');
+const returnNotesInput = document.getElementById('return-notes');
+const returnResult = document.getElementById('return-result');
 
 let CHECKOUT_CART = [];
 let CURRENT_PRODUCT = null;
@@ -50,7 +59,9 @@ function updateCartDisplay() {
     emptyCartMessage.style.display = CHECKOUT_CART.length === 0 ? 'block' : 'none';
   }
   if (subtotalText) subtotalText.innerText = '$' + subtotal.toFixed(2);
-  if (totalAmountText) totalAmountText.innerText = '$' + subtotal.toFixed(2);
+  const discount = parseFloat(checkoutDiscount?.value || '0') || 0;
+  const total = Math.max(0, subtotal - discount);
+  if (totalAmountText) totalAmountText.innerText = '$' + total.toFixed(2);
   if (cartCountText) cartCountText.innerText = CHECKOUT_CART.length.toString();
   if (cartSubtotalText) cartSubtotalText.innerText = '$' + subtotal.toFixed(2);
 }
@@ -155,9 +166,23 @@ async function completeSale() {
   }
 
   try {
+    const discount = parseFloat(checkoutDiscount?.value || '0') || 0;
+    const payment_method = checkoutPaymentMethod?.value || 'cash';
     const items = CHECKOUT_CART.map(item => ({product_id: item.product_id, quantity: item.quantity}));
-    const result = await apiPost('/api/sales', {branch_id: branch, items});
-    document.getElementById('sale-result')?.innerText = JSON.stringify(result, null, 2);
+    const result = await apiPost('/api/sales', {branch_id: branch, items, payment_method, discount});
+    if (document.getElementById('sale-result')) {
+      document.getElementById('sale-result').innerHTML = `
+        <div class="border rounded p-3 bg-light">
+          <h5>Receipt</h5>
+          <p><strong>Sale ID:</strong> ${result.sale_id}</p>
+          <p><strong>Payment:</strong> ${result.payment_method}</p>
+          <p><strong>Subtotal:</strong> $${result.subtotal.toFixed(2)}</p>
+          <p><strong>Discount:</strong> $${result.discount.toFixed(2)}</p>
+          <p><strong>Total:</strong> $${result.total.toFixed(2)}</p>
+          ${result.low_stock_alerts && result.low_stock_alerts.length ? `<div class="alert alert-warning"><strong>Low stock alerts:</strong><ul>${result.low_stock_alerts.map(item => `<li>Product ${item.product_id} has ${item.qty} left (threshold ${item.threshold})</li>`).join('')}</ul></div>` : ''}
+        </div>
+      `;
+    }
     showAlert('Sale completed successfully.', 'success');
     CHECKOUT_CART = [];
     updateCartDisplay();
@@ -166,6 +191,40 @@ async function completeSale() {
   }
 }
 
+async function processReturn() {
+  const branch = returnBranchInput?.value.trim();
+  const productId = returnProductInput?.value.trim();
+  const quantity = returnQuantityInput?.value.trim();
+  const returnType = returnTypeInput?.value;
+  const originalSale = returnOriginalSaleInput?.value.trim();
+  const notes = returnNotesInput?.value.trim();
+
+  if (!branch || !productId || !quantity) {
+    showAlert('Return branch, product ID, and quantity are required.', 'warning');
+    return;
+  }
+
+  try {
+    const payload = {
+      branch_id: branch,
+      return_type: returnType,
+      items: [{product_id: productId, quantity}],
+      original_sale_id: originalSale || undefined,
+      notes: notes || undefined
+    };
+    const result = await apiPost('/api/returns', payload);
+    if (returnResult) {
+      returnResult.innerText = JSON.stringify(result, null, 2);
+    }
+    showAlert('Return processed successfully.', 'success');
+  } catch (err) {
+    showAlert(err.msg || 'Could not process the return. Please check the inputs.', 'danger');
+  }
+}
+
+if (checkoutDiscount) {
+  checkoutDiscount.addEventListener('change', updateCartDisplay);
+}
 if (document.getElementById('btn-search-product')) {
   document.getElementById('btn-search-product').addEventListener('click', searchProduct);
 }
@@ -177,6 +236,9 @@ if (document.getElementById('btn-clear-cart')) {
 }
 if (document.getElementById('btn-complete-sale')) {
   document.getElementById('btn-complete-sale').addEventListener('click', completeSale);
+}
+if (document.getElementById('btn-process-return')) {
+  document.getElementById('btn-process-return').addEventListener('click', processReturn);
 }
 if (checkoutSearch) {
   checkoutSearch.addEventListener('keydown', event => {

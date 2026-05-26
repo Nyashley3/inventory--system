@@ -9,29 +9,26 @@
 </head>
 <body>
   <div class="container py-5">
-    <div class="page-card mx-auto max-w-900">
-      <div class="row align-items-center">
+    <div class="hero-card mx-auto max-w-900">
+      <div class="row gy-4 align-items-center">
         <div class="col-md-6">
-          <h2 class="mb-3">MobileTill Pulse</h2>
-          <p class="section-intro">Login to manage products, branch stock, sales, and reports from one mobile-friendly dashboard.</p>
-        </div>
-        <div class="col-md-6 text-md-end">
-          <span class="badge bg-primary">Fast launch</span>
-          <span class="badge bg-secondary">Mobile ready</span>
-        </div>
-      </div>
-      <hr>
-      <div id="alert"></div>
-      <div class="row">
-        <div class="col-md-6">
-          <h5>Login</h5>
-          <div class="mb-3"><input id="login-username" class="form-control" placeholder="username"></div>
-          <div class="mb-3"><input id="login-password" type="password" class="form-control" placeholder="password"></div>
-          <button id="btn-login" class="btn btn-primary w-100">Login</button>
+          <h1 class="mb-3">MobileTill Pulse</h1>
+          <p class="section-intro">The fast, mobile-friendly inventory dashboard for branches, products, stock alerts, checkout, and sales reporting.</p>
+          <div class="d-flex flex-wrap gap-2">
+            <span class="feature-badge">Fast launch</span>
+            <span class="feature-badge">Branch control</span>
+            <span class="feature-badge">Low stock alerts</span>
+          </div>
         </div>
         <div class="col-md-6">
-          <h5>Account access</h5>
-          <p>New accounts must be created by an existing manager or administrator. Contact your administrator for access.</p>
+          <div class="page-card">
+            <h4 class="mb-3">Sign in</h4>
+            <div id="alert"></div>
+            <div class="mb-3"><input id="login-username" class="form-control" placeholder="Username"></div>
+            <div class="mb-3"><input id="login-password" type="password" class="form-control" placeholder="Password"></div>
+            <button id="btn-login" class="btn btn-primary w-100">Login</button>
+            <p class="text-muted mt-3 mb-0">New users must be created by a manager or administrator. Ask your branch leader for access.</p>
+          </div>
         </div>
       </div>
     </div>

@@ -1,0 +1,62 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row">
+  <div class="col-12">
+    <h1 class="mb-4">Returns / Exchanges</h1>
+  </div>
+</div>
+
+<div class="row">
+  <div class="col-lg-8">
+    <div class="card mb-4">
+      <div class="card-header bg-info text-white">
+        <h6 class="mb-0">Process a Return, Exchange, or Damaged Item</h6>
+      </div>
+      <div class="card-body">
+        <div class="row g-3">
+          <div class="col-md-4">
+            <label class="form-label">Return Type</label>
+            <select id="return-type" class="form-select">
+              <option value="refund">Refund</option>
+              <option value="exchange">Exchange</option>
+              <option value="damaged">Damaged</option>
+            </select>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Return Branch</label>
+            <input id="return-branch" class="form-control" placeholder="Branch ID">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Original Sale ID</label>
+            <input id="return-original-sale" class="form-control" placeholder="Optional sale id">
+          </div>
+        </div>
+        <div class="row g-3 mt-3">
+          <div class="col-md-4">
+            <label class="form-label">Product ID</label>
+            <input id="return-product" class="form-control" placeholder="Product ID">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Quantity</label>
+            <input id="return-quantity" type="number" min="1" class="form-control" value="1">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Notes</label>
+            <input id="return-notes" class="form-control" placeholder="Reason / details">
+          </div>
+        </div>
+        <div class="mt-3 d-grid">
+          <button id="btn-process-return" class="btn btn-outline-primary">Process Return / Exchange</button>
+        </div>
+        <div id="return-result" class="mt-3"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/checkout.js"></script>
+{% endblock %}

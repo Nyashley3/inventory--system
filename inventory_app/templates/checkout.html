@@ -3,18 +3,22 @@
 <h3>Checkout — Point of Sale</h3>
 
 <div class="row">
-  <!-- Search & Add Panel -->
-  <div class="col-md-4">
-    <div class="card mb-4">
-      <div class="card-header bg-primary text-white">
-        <h6 class="mb-0">Add Products</h6>
-      </div>
-      <div class="card-body">
+      <!-- Search & Add Panel -->
+      <div class="col-md-4">
+        <div class="card mb-4">
+          <div class="card-header bg-primary text-white">
+              <h6 class="mb-0">Scanner & Add Products</h6>
+            </div>
+        <div class="card-body">
+          <div id="scanner" class="mb-3"></div>
+          <div class="d-flex gap-2 mb-3">
+            <button id="btn-start" class="btn btn-success flex-fill">Start Scan</button>
+            <button id="btn-stop" class="btn btn-warning flex-fill">Stop</button>
+          </div>
         <div class="mb-3">
           <label class="form-label">Branch ID</label>
-          <input id="checkout-branch" class="form-control" placeholder="e.g., 1" type="number">
+          <input id="checkout-branch" class="form-control" placeholder="Enter branch ID">
         </div>
-        
         <div class="mb-3">
           <label class="form-label">Search Product</label>
           <div class="input-group">
@@ -71,11 +75,23 @@
         <hr>
 
         <!-- Totals Section -->
-        <div class="row">
+        <div class="row mb-3">
           <div class="col-md-6 offset-md-6">
             <div class="d-flex justify-content-between mb-2">
               <span>Subtotal:</span>
               <span id="total-subtotal">$0.00</span>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Discount</label>
+              <input id="checkout-discount" type="number" min="0" step="0.01" class="form-control" value="0.00">
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Payment Method</label>
+              <select id="checkout-payment-method" class="form-select">
+                <option value="cash">Cash</option>
+                <option value="card">Card</option>
+                <option value="ecocash">Ecocash</option>
+              </select>
             </div>
             <div class="d-flex justify-content-between mb-3">
               <span class="fw-bold">Total:</span>
@@ -92,10 +108,13 @@
       </div>
     </div>
   </div>
+
 </div>
 
 {% endblock %}
 
 {% block scripts %}
+<script src="https://unpkg.com/@ericblade/quagga2@1.2.6/dist/quagga.min.js"></script>
 <script src="/static/js/checkout.js"></script>
+<script src="/static/js/scan.js"></script>
 {% endblock %}

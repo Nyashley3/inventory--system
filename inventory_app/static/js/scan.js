@@ -2,6 +2,8 @@
 // When a barcode is detected, it queries the backend for product info.
 
 const scannerElement = document.getElementById('scanner');
+const scannedInfo = document.getElementById('product-details');
+const scanResult = document.getElementById('scan-result');
 let scanning = false;
 
 async function lookupBarcode(barcode){
@@ -9,16 +11,21 @@ async function lookupBarcode(barcode){
   try{
     const res = await fetch(`/api/products?barcode=${encodeURIComponent(barcode)}` , {headers: {'Authorization': 'Bearer '+token}});
     if (!res.ok) {
-      document.getElementById('product-info').innerText = 'Product not found';
+      if (scannedInfo) scannedInfo.innerText = 'Product not found';
+      if (scanResult) scanResult.innerText = `Scanned: ${barcode}`;
       showAlert('Barcode not recognized. Please verify the product barcode.', 'warning');
       return;
     }
     const p = await res.json();
-    document.getElementById('scan-result').innerText = `Scanned: ${barcode}`;
-    document.getElementById('product-info').innerHTML = `<pre>${JSON.stringify(p, null, 2)}</pre>`;
-    document.getElementById('sale-product').value = p.id;
-  }catch(e){
-    document.getElementById('product-info').innerText = 'Error: '+e.message;
+    if (scanResult) scanResult.innerText = `Scanned: ${barcode}`;
+    if (scannedInfo) scannedInfo.innerHTML = `<pre>${JSON.stringify(p, null, 2)}</pre>`;
+    const productField = document.getElementById('sale-product') || document.getElementById('checkout-search');
+    if (productField) productField.value = p.id;
+    if (typeof CURRENT_PRODUCT !== 'undefined') {
+      CURRENT_PRODUCT = p;
+    }
+  } catch(e) {
+    if (scannedInfo) scannedInfo.innerText = 'Error: '+e.message;
     showAlert('Barcode scan failed. Please try again.', 'danger');
   }
 }
